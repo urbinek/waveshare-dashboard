@@ -52,47 +52,27 @@ def draw_panel(image, draw, calendar_data, fonts, box_info):
 
         try:
             event_dt_obj = parser.isoparse(start_str)
-            is_today = event_dt_obj.date() == today
             summary = event.get('summary', 'Brak tytułu')
-            y_adjustment = 0
-            current_font_event = font_event
-            current_font_date = font_date
 
-            if is_today:
-                is_weekend = event_dt_obj.weekday() >= 5
-                is_holiday = event_dt_obj.date() in holiday_dates_set
-                is_special_day = is_weekend or is_holiday
-                if is_special_day:
-                    y_adjustment = -70
-                    current_font_event = fonts.get('small_holiday', font_event)
-                    current_font_date = fonts.get('small_bold_holiday', font_date)
-                    # Today and special day - use DARK_GRAY background, WHITE text
-                    # Draw background on a temporary image and paste it
-                    bg_rect = (rect[0], y_slot_top + y_adjustment, rect[2], y_slot_top + line_height + y_adjustment)
-                    bg_image = Image.new('L', (bg_rect[2] - bg_rect[0], bg_rect[3] - bg_rect[1]), drawing_utils.DARK_GRAY)
-                    image.paste(bg_image, (bg_rect[0], bg_rect[1])) # Paste onto main image
-                    text_color = drawing_utils.WHITE
-                else:
-                    # Today, normal day - use BLACK text, WHITE background (default)
-                    text_color = drawing_utils.BLACK
-                time_formatted = event_dt_obj.strftime('%H:%M')
-            else:
-                # Normal event - use BLACK text, WHITE background (default)
-                text_color = drawing_utils.BLACK
-                time_formatted = event_dt_obj.strftime('%d.%m')
+            # Use black text on white background for all events
+            text_color = drawing_utils.BLACK
 
-            draw.text((x_start, y_centered + y_adjustment), time_formatted, font=current_font_date, fill=text_color, anchor="lm")
+            # Format date as DD.MM
+            time_formatted = event_dt_obj.strftime('%d.%m')
 
-            # Truncate and draw summary with smaller ellipsis
+            # Draw date (bold)
+            draw.text((x_start, y_centered), time_formatted, font=font_date, fill=text_color, anchor="lm")
+
+            # Truncate and draw summary
             max_len = 30
             display_summary = textwrap.shorten(summary, width=max_len, placeholder="")
-            draw.text((x_start + time_width, y_centered + y_adjustment), display_summary, font=current_font_event, fill=text_color, anchor="lm")
+            draw.text((x_start + time_width, y_centered), display_summary, font=font_event, fill=text_color, anchor="lm")
 
             if len(summary) > max_len:
-                text_width = draw.textlength(display_summary, font=current_font_event)
+                text_width = draw.textlength(display_summary, font=font_event)
                 ellipsis_x = x_start + time_width + text_width
                 font_ellipsis = fonts.get('ellipsis')
-                draw.text((ellipsis_x, y_centered + y_adjustment), "...", font=font_ellipsis, fill=text_color, anchor="lm")
+                draw.text((ellipsis_x, y_centered), "...", font=font_ellipsis, fill=text_color, anchor="lm")
 
         except (ValueError, TypeError) as e:
             logging.warning(f"Nie udało się przetworzyć daty wydarzenia '{start_str}': {e}")

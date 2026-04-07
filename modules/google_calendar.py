@@ -137,13 +137,16 @@ def update_events(verbose_mode=False):
                 end_dt -= datetime.timedelta(days=1)
 
             current_dt = start_dt
+            now = datetime.datetime.now().date()
             while current_dt <= end_dt:
-                is_holiday_event = event_raw.get('organizer', {}).get('email') == GCAL_CONFIG['calendar_ids']['holidays']
-                all_events.append({
-                    'summary': event_raw.get('summary', 'Brak tytułu'),
-                    'start': current_dt.isoformat(),
-                    'is_holiday': is_holiday_event
-                })
+                if current_dt.date() >= now:
+                    is_holiday_event = event_raw.get('organizer', {}).get('email') == GCAL_CONFIG['calendar_ids']['holidays']
+                    all_events.append({
+                        'summary': event_raw.get('summary', 'Brak tytułu'),
+                        'start': current_dt.isoformat(),
+                        'is_holiday': is_holiday_event,
+                        'is_all_day': 'date' in start_info
+                    })
                 current_dt += datetime.timedelta(days=1)
 
         # Sort events by start time

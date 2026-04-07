@@ -1,6 +1,6 @@
-# Gemini Project: Waveshare E-Paper Dashboard
+# Antigravity: Waveshare E-Paper Dashboard
 
-This document provides context for the Gemini AI assistant to effectively contribute to the Waveshare E-Paper Dashboard project.
+This document provides context for the Antigravity AI assistant to effectively contribute to the Waveshare E-Paper Dashboard project.
 
 ## Project Overview
 

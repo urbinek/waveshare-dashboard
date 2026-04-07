@@ -103,25 +103,37 @@ def generate_image(layout_config, draw_borders=False):
         logging.debug(f"Rysowanie nietypowego święta: '{unusual_holiday_title}'")
         font_title = fonts.get('small_bold')
         font_desc = fonts.get('small')
+        
+        unusual_holiday_config = config.get('unusual_holiday', {})
+        y_offset = unusual_holiday_config.get('y_offset', 0)
+
         y_start_area = 400
         area_height = EPD_HEIGHT - y_start_area
         y_center_area = y_start_area + area_height // 2
+        
         max_width_chars_title = 45
         max_width_chars_desc = 55
+        
         wrapped_title = textwrap.wrap(unusual_holiday_title, width=max_width_chars_title)
         title_line_height = font_title.getbbox("A")[3] - font_title.getbbox("A")[1] + 5
         total_title_height = len(wrapped_title) * title_line_height
+        
         wrapped_desc = []
         total_desc_height = 0
         if unusual_holiday_desc:
             wrapped_desc = textwrap.wrap(unusual_holiday_desc, width=max_width_chars_desc)
             desc_line_height = font_desc.getbbox("A")[3] - font_desc.getbbox("A")[1] + 4
             total_desc_height = len(wrapped_desc) * desc_line_height + 5
+            
         total_block_height = total_title_height + total_desc_height
-        current_y = y_center_area - total_block_height // 2 + 10
+        
+        # Przesunięcie o -20px w górę + dodatkowy offset z config.yaml
+        current_y = y_center_area - total_block_height // 2 - 10 + y_offset
+        
         for line in wrapped_title:
             draw.text((EPD_WIDTH // 2, current_y), line, font=font_title, fill=drawing_utils.BLACK, anchor="mt")
             current_y += title_line_height
+            
         if wrapped_desc:
             current_y += 5
             for line in wrapped_desc:

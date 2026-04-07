@@ -7,7 +7,6 @@ def draw_panel(draw, calendar_data, fonts, box_info):
     """Rysuje siatkę kalendarza."""
     logging.debug(f"Rysowanie panelu kalendarza w obszarze: {box_info['rect']}")
     rect = box_info['rect']
-
     adjustments = box_info.get('positional_adjustments', {})
     x_offset = adjustments.get('x', 0)
     y_offset = adjustments.get('y', 0)
@@ -27,7 +26,6 @@ def draw_panel(draw, calendar_data, fonts, box_info):
     box_width = rect[2] - rect[0]
     box_height = rect[3] - rect[1]
 
-    x_offset = 20
     grid_x_start = rect[0] + (box_width - grid_width) // 2 + x_offset
     grid_y_start = rect[1] + (box_height - grid_height) // 2 + y_offset
 
@@ -67,18 +65,23 @@ def draw_panel(draw, calendar_data, fonts, box_info):
                 is_upcoming_holiday = is_holiday and day_date and day_date >= datetime.date.today()
 
                 if day_info.get('is_current_month'):
-                    if has_event or is_upcoming_holiday:
-                        # Black square, white text
+                    if is_holiday:
+                        if is_upcoming_holiday:
+                            # Upcoming holiday: black square, white text
+                            draw.rectangle((cell_x, cell_y, cell_x + cell_width, cell_y + cell_height), fill=drawing_utils.BLACK)
+                            draw.text((text_x, text_y), day_str, font=current_font, fill=drawing_utils.WHITE, anchor="mm")
+                        else:
+                            # Past holiday: dark gray text
+                            draw.text((text_x, text_y), day_str, font=current_font, fill=drawing_utils.DARK_GRAY, anchor="mm")
+                    elif has_event:
+                        # Event (not a holiday): black square, white text
                         draw.rectangle((cell_x, cell_y, cell_x + cell_width, cell_y + cell_height), fill=drawing_utils.BLACK)
                         draw.text((text_x, text_y), day_str, font=current_font, fill=drawing_utils.WHITE, anchor="mm")
                     else:
-                        # Normal coloring logic
-                        text_color = drawing_utils.BLACK # Default
-                        if is_holiday: # Past holiday
-                            text_color = drawing_utils.DARK_GRAY
-                        elif day_date and day_date < datetime.date.today(): # Past day
+                        # Normal day
+                        text_color = drawing_utils.BLACK
+                        if day_date and day_date < datetime.date.today():
                             text_color = drawing_utils.LIGHT_GRAY
-                        
                         draw.text((text_x, text_y), day_str, font=current_font, fill=text_color, anchor="mm")
 
                 if is_today:

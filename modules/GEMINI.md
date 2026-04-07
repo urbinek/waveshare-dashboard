@@ -1,7 +1,7 @@
 
-# Gemini Project: Modules
+# Antigravity: Modules
 
-This document provides context for the modules within the Waveshare E-Paper Dashboard project for the Gemini AI assistant.
+This document provides context for the modules within the Waveshare E-Paper Dashboard project for the Antigravity AI assistant.
 
 ## Overview
 

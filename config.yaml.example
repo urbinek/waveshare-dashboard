@@ -74,3 +74,7 @@ panels:
     positional_adjustments:
       x: 20
       y: -50
+
+# Konfiguracja wyświetlania nietypowego święta
+unusual_holiday:
+  y_offset: 0
