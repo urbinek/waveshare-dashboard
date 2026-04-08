@@ -1,6 +1,6 @@
-# Gemini Project: Waveshare E-Paper Dashboard
+# Antigravity: Waveshare E-Paper Dashboard
 
-This document provides context for the Gemini AI assistant to effectively contribute to the Waveshare E-Paper Dashboard project.
+This document provides context for the Antigravity AI assistant to effectively contribute to the Waveshare E-Paper Dashboard project.
 
 ## Project Overview
 
@@ -14,6 +14,7 @@ The project is a personalized, grayscale (black and white with shades of gray) d
     - `google-api-python-client` for Google Calendar integration
     - `Pillow` for image manipulation
     - `cairosvg` for SVG rendering (recommended for performance)
+    - `paho-mqtt` for local Zigbee sensor data
 - **Configuration:**
     - `config.yaml` for all application settings.
 - **Linting:** `flake8` (configuration in `.flake8`)

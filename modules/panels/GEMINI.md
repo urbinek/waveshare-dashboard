@@ -1,7 +1,7 @@
 
-# Gemini Project: Panels
+# Antigravity: Panels
 
-This document provides context for the panel modules within the Waveshare E-Paper Dashboard project for the Gemini AI assistant.
+This document provides context for the panel modules within the Waveshare E-Paper Dashboard project for the Antigravity AI assistant.
 
 ## Overview
 

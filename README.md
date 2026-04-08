@@ -9,7 +9,7 @@ Spersonalizowany, dwukolorowy (czarno-biały z odcieniami szarości) dashboard d
 ## Funkcjonalności
 
 - **Panel Czasu**: Wyświetla aktualną godzinę, datę, dzień tygodnia oraz godziny wschodu i zachodu słońca.
-- **Panel Pogody**: Pokazuje aktualne warunki pogodowe (temperatura, wilgotność, ciśnienie) na podstawie danych z najbliższej stacji synoptycznej IMGW. Automatycznie dobiera ikony dnia i nocy.
+- **Panel Pogody**: Pokazuje aktualne warunki pogodowe (dwie temperatury: lokalna z własnego czujnika IoT oraz referencyjna z najbliższej stacji IMGW), ikony bazujące na bezpłatnym Open-Meteo oraz dane o środowisku z Airly.
 - **Wskaźnik Nieaktualnych Danych**: Jeśli dane (np. pogodowe) nie mogą zostać odświeżone z powodu braku internetu, aplikacja wyświetli ostatnie znane dane wraz z ikoną ostrzegawczą.
 - **Panel Wydarzeń**: Listuje nadchodzące wydarzenia z Twojego osobistego Kalendarza Google.
 - **Panel Kalendarza**: Przedstawia widok całego miesiąca z zaznaczonymi weekendami, świętami państwowymi oraz dniami, w których masz zaplanowane wydarzenia.
@@ -60,10 +60,13 @@ cp config.yaml.example config.yaml
 nano config.yaml
 ```
 
-#### a) Moduł Pogody
+#### a) Moduł Pogody, MQTT i Jakości Powietrza
 
-- `IMGW_STATION_NAME`: Wpisz nazwę najbliższej stacji synoptycznej (np. "KATOWICE"). Listę znajdziesz na stronie IMGW.
-- `LOCATION_LAT` i `LOCATION_LON`: Ustaw swoją szerokość i długość geograficzną, aby poprawnie obliczać godziny wschodu i zachodu słońca.
+W pliku konfiguracyjnym w sekcji `location`, `mqtt` i `api_keys` skonfigurujesz następujące wskaźniki:
+- `imgw_station_id`: Identyfikator stacji synoptycznej IMGW (do pobierania oficjalnej temperatury w okolicy).
+- `latitude` i `longitude`: Twoja szerokość i długość geograficzna potrzebna dla strefy czasowej, wschodów Słońca oraz Open-Meteo.
+- Sekcja `mqtt`: Konfiguracja do brokera dla subskrypcji odczytów Twojego czujnika na zewnątrz (`topic_outdoor: "zigbee2mqtt//Outdoor"`). Aplikacja nieprzerwanie śledzi go w tle.
+- Ustawienia `airly` i `airly_location_id`: Konieczne do widoczności zanieczyszczeń powietrza (CAQI) i wilgotności.
 
 #### b) Moduł Kalendarza Google
 
@@ -71,18 +74,19 @@ nano config.yaml
 
 - `FLIP_DISPLAY`: Ustaw na `True`, jeśli chcesz, aby obraz na wyświetlaczu był domyślnie obrócony o 180 stopni. Jest to przydatne, jeśli obudowa lub ustawienie urządzenia wymaga odwróconej orientacji.
 
-To najważniejszy krok konfiguracyjny. Musisz uzyskać klucze API od Google.
+To najważniejszy krok konfiguracyjny dla wydarzeń. Musisz uzyskać klucze API od Google w postaci json.
 
-#### d) Konfiguracja Layoutu (`layout.yaml`)
+#### d) Konfiguracja Layoutu
 
-Plik `layout.yaml` pozwala na pełną kontrolę nad układem paneli na ekranie bez potrzeby modyfikacji kodu. Możesz zmieniać ich rozmiary, pozycje, a także włączać je i wyłączać.
+Plik `config.yaml` posiada sekcję `panels`, która pozwala na pełną kontrolę nad układem kafelków na ekranie bez potrzeby modyfikacji kodu. Możesz zmieniać ich pozycje, a także włączać je i wyłączać.
 
 ```yaml
 panels:
   time:
     enabled: true
     rect: [0, 0, 400, 160]
-    y_offset: 10
+    positional_adjustments:
+      y: 10
   # ... inne panele
 ```
 

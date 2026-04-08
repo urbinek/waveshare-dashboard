@@ -7,13 +7,12 @@ app:
 location:
   latitude: YOUR_LATITUDE
   longitude: YOUR_LONGITUDE
-  imgw_station_name: "YOUR_IMGW_STATION_NAME"
+  imgw_station_id: "YOUR_IMGW_STATION_ID"
 
 # Pogodowe klucze API
 api_keys:
   airly: "YOUR_AIRLY_API_KEY"
-  accuweather: "YOUR_ACCUWEATHER_API_KEY"
-  accuweather_location_key: "YOUR_ACCUWEATHER_LOCATION_KEY"
+  airly_location_id: "YOUR_AIRLY_LOCATION_ID"
 
 # Konfiguracja Google Calendar
 google_calendar:
@@ -26,9 +25,18 @@ google_calendar:
     shared: 'YOUR_SHARED_CALENDAR_ID'
   max_upcoming_events: 7
 
+# Konfiguracja MQTT (Zigbee2MQTT)
+mqtt:
+  broker: "YOUR_MQTT_BROKER_IP"
+  port: 1883
+  username: "YOUR_MQTT_USERNAME"
+  password: "YOUR_MQTT_PASSWORD"
+  topic_outdoor: "zigbee2mqtt//Outdoor"
+
 # Interwały odświeżania API (w minutach)
 refresh_intervals:
-  accuweather_minutes: 32
+  imgw_minutes: 60
+  open_meteo_minutes: 60
   airly_minutes: 16
   google_calendar_minutes: 1
 
@@ -74,3 +82,7 @@ panels:
     positional_adjustments:
       x: 20
       y: -50
+
+# Konfiguracja wyświetlania nietypowego święta
+unusual_holiday:
+  y_offset: 0

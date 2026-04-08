@@ -11,7 +11,9 @@ from modules.network_utils import retry
 
 logger = logging.getLogger(__name__)
 
-API_URL = "https://airapi.airly.eu/v2/measurements/point"
+# Nowy endpoint Airly: measurements/location (po locationId zamiast lat/lng)
+API_URL = "https://airapi.airly.eu/v2/measurements/location"
+
 
 def get_mock_data():
     """Zwraca dane zastępcze w przypadku błędu."""
@@ -24,34 +26,38 @@ def get_mock_data():
         }
     }
 
+
 @retry(exceptions=(requests.exceptions.RequestException,), tries=3, delay=10, backoff=2, logger=logger)
 def _fetch_airly_data(verbose_mode=False):
     """Pobiera dane z API Airly z mechanizmem ponawiania prób."""
     airly_config = config['api_keys']
-    location_config = config['location']
     api_key = airly_config.get('airly')
+    location_id = airly_config.get('airly_location_id')
 
     if not api_key:
         logger.error("Brak skonfigurowanego klucza AIRLY_API_KEY w pliku config.yaml. Pomijam pobieranie danych Airly.")
         return None
 
+    if not location_id:
+        logger.error("Brak skonfigurowanego airly_location_id w pliku config.yaml -> api_keys. Pomijam pobieranie danych Airly.")
+        return None
+
     headers = {'apikey': api_key, 'Accept-Language': 'pl'}
-    params = {
-        'lat': location_config['latitude'],
-        'lng': location_config['longitude']
-    }
-    logger.info(f"Pobieranie danych z API Airly ({API_URL}) dla lokalizacji: lat={location_config['latitude']}, lng={location_config['longitude']}")
+    params = {'locationId': location_id}
+
+    logger.info(f"Pobieranie danych z API Airly ({API_URL}) dla locationId={location_id}")
     response = requests.get(API_URL, headers=headers, params=params, timeout=10)
     response.raise_for_status()
 
     json_data = response.json()
     if verbose_mode:
-        logger.debug(f"Pobrana odpowiedź JSON z Airly: {json_data}")
+        logger.debug(f"Pobrana odpowiedź JSON z Airly: {json.dumps(json_data, ensure_ascii=False)}")
     return json_data
+
 
 def update_airly_data(verbose_mode=False):
     """
-    Pobiera dane o jakości powietrza i pogodzie z API Airly.
+    Pobiera dane o jakości powietrza z API Airly (endpoint /location).
     W przypadku błędu, aplikacja będzie korzystać z ostatnich pomyślnie pobranych danych.
     """
     file_path = os.path.join(path_manager.CACHE_DIR, 'airly.json')
@@ -73,6 +79,7 @@ def update_airly_data(verbose_mode=False):
         logger.warning(f"Błąd sieci podczas pobierania danych Airly: {e}. Aplikacja użyje danych z pamięci podręcznej.")
     except Exception as e:
         logger.error(f"Wystąpił nieoczekiwany błąd w module Airly: {e}. Aplikacja użyje danych z pamięci podręcznej.", exc_info=True)
+
 
 if __name__ == '__main__':
     logging.basicConfig(level=logging.INFO)

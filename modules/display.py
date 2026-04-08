@@ -48,8 +48,10 @@ def generate_image(layout_config, draw_borders=False):
     time_data = safe_read_json('time.json', {'time': '??:??', 'date': 'Brak daty', 'weekday': 'Brak dnia'})
     weather_data = safe_read_json('weather.json', {
         'icon': asset_manager.get_path('icon_sync_problem'),
-        'temp_real': '??', 'sunrise': '--:--', 'sunset': '--:--',
-        'humidity': '--', 'pressure': '--'
+        'temp_local': '--', 'temp_imgw': '--',
+        'sunrise': '--:--', 'sunset': '--:--',
+        'humidity': '--', 'pressure': '--',
+        'weather_description': ''
     })
     airly_data = safe_read_json('airly.json', {
         "current": {"indexes": [{"name": "AIRLY_CAQI", "value": 0, "level": "UNKNOWN", "description": "Brak danych"}]}
@@ -103,25 +105,37 @@ def generate_image(layout_config, draw_borders=False):
         logging.debug(f"Rysowanie nietypowego święta: '{unusual_holiday_title}'")
         font_title = fonts.get('small_bold')
         font_desc = fonts.get('small')
+
+        unusual_holiday_config = config.get('unusual_holiday', {})
+        y_offset = unusual_holiday_config.get('y_offset', 0)
+
         y_start_area = 400
         area_height = EPD_HEIGHT - y_start_area
         y_center_area = y_start_area + area_height // 2
+
         max_width_chars_title = 45
         max_width_chars_desc = 55
+
         wrapped_title = textwrap.wrap(unusual_holiday_title, width=max_width_chars_title)
         title_line_height = font_title.getbbox("A")[3] - font_title.getbbox("A")[1] + 5
         total_title_height = len(wrapped_title) * title_line_height
+
         wrapped_desc = []
         total_desc_height = 0
         if unusual_holiday_desc:
             wrapped_desc = textwrap.wrap(unusual_holiday_desc, width=max_width_chars_desc)
             desc_line_height = font_desc.getbbox("A")[3] - font_desc.getbbox("A")[1] + 4
             total_desc_height = len(wrapped_desc) * desc_line_height + 5
+
         total_block_height = total_title_height + total_desc_height
-        current_y = y_center_area - total_block_height // 2 + 10
+
+        # Przesunięcie o -20px w górę + dodatkowy offset z config.yaml
+        current_y = y_center_area - total_block_height // 2 - 10 + y_offset
+
         for line in wrapped_title:
             draw.text((EPD_WIDTH // 2, current_y), line, font=font_title, fill=drawing_utils.BLACK, anchor="mt")
             current_y += title_line_height
+
         if wrapped_desc:
             current_y += 5
             for line in wrapped_desc:
@@ -155,7 +169,7 @@ def _execute_display_update(img, mode, flip, clear_screen=False, rect=None, quie
                 img_display = img.rotate(180)
             else:
                 img_display = img
-            
+
             epd = epd7in5_V2.EPD()
             if mode == 'full':
                 epd.init()
@@ -175,10 +189,10 @@ def _execute_display_update(img, mode, flip, clear_screen=False, rect=None, quie
                         EPD_HEIGHT - rect[1]
                     )
                     logging.debug(f"Oryginalny rect: {rect}, Transformed rect: {transformed_rect}")
-                    epd.display_Partial(epd.getbuffer(img_display), transformed_rect[0], transformed_rect[1], transformed_rect[2]-transformed_rect[0], transformed_rect[3]-transformed_rect[1])
+                    epd.display_Partial(epd.getbuffer(img_display), transformed_rect[0], transformed_rect[1], transformed_rect[2] - transformed_rect[0], transformed_rect[3] - transformed_rect[1])
                 else:
-                    epd.display_Partial(epd.getbuffer(img_display), rect[0], rect[1], rect[2]-rect[0], rect[3]-rect[1])
-            
+                    epd.display_Partial(epd.getbuffer(img_display), rect[0], rect[1], rect[2] - rect[0], rect[3] - rect[1])
+
             epd.sleep()
             logging.debug(f"_execute_display_update: Zakończenie dla trybu: {mode}")
             logging.log(log_level, f"Aktualizacja wyświetlacza (tryb: {mode}) zakończona.")

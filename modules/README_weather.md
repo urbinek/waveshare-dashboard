@@ -1,29 +1,22 @@
-# Moduł: Pogoda
+# Moduł: Pogoda (Agregator)
 
-Ten moduł odpowiada za pobieranie, przetwarzanie i dostarczanie danych pogodowych dla dashboardu.
+Ten moduł (`weather.py`) pełni od teraz rolę agregatora — nie łączy się już bezpośrednio z żadnym zewnętrznym pojedynczym API (jak dawniej AccuWeather). Zamiast tego zespala zbiór danych pobranych lokalnie lub z dedykowanych małych skryptów dostarczających oddzielne wycinki parametrów meteo.
 
-## Funkcjonalność
+## Wymagane Komponenty do działania
 
-- **Źródło Danych**: Pobiera aktualne dane synoptyczne z publicznego API Instytutu Meteorologii i Gospodarki Wodnej (IMGW).
-- **Wschód i Zachód Słońca**: Oblicza dokładne godziny wschodu i zachodu słońca dla podanej lokalizacji geograficznej, wykorzystując bibliotekę `astral`.
-- **Inteligentne Mapowanie Ikon**:
-  - Na podstawie danych o zachmurzeniu i opadach, moduł wybiera odpowiednią ikonę pogody.
-  - Automatycznie rozróżnia ikony dzienne i nocne na podstawie godzin wschodu/zachodu słońca.
-  - Posiada mechanizm awaryjny – jeśli preferowana ikona (np. dzienna) nie istnieje w zasobach, spróbuje użyć jej nocnego odpowiednika.
-- **Odporność na Błędy**: Moduł został zaprojektowany z myślą o maksymalnej niezawodności.
-  - **Ponawianie Prób**: W przypadku przejściowych problemów z siecią, próba pobrania danych jest automatycznie ponawiana kilkukrotnie.
-  - **Inteligentny Cache**: Jeśli pobranie nowych danych nie powiedzie się (np. z powodu braku połączenia z internetem lub błędu po stronie API), moduł **nie nadpisuje istniejących danych**. Aplikacja będzie kontynuować wyświetlanie ostatnich pomyślnie pobranych informacji, zamiast pokazywać puste pola. Dane zastępcze (`--`) pojawią się tylko wtedy, gdy aplikacja jest uruchamiana po raz pierwszy bez dostępu do sieci.
-- **Wskaźnik Nieaktualnych Danych**: Moduł zapisuje znacznik czasu (`timestamp`) każdej udanej aktualizacji. Pozwala to interfejsowi użytkownika na wyświetlenie specjalnej ikony ostrzegawczej, gdy wyświetlane dane są nieaktualne.
+Moduł ten oczekuje gotowych wyników wygenerowanych (w tle lub osobno z crona schedulera) z innych bibliotek peryferyjnych:
 
-## Konfiguracja
+- **`imgw.py`**: Oczekiwane na bazową temperaturę powietrza z dokładnej stacji synoptycznej (np. z Katowic). Aktualizowane raz na godzinę. Zapotrzebowanie: `imgw_station_id`.
+- **`zigbee2mqtt.py`**: Podaje surowe dane bezpośrednio dla własnego wew/zewn sensora. Konieczny MQTT oraz wpis w konfiguracji (pamiętaj o odpowiednim `topic_outdoor`).
+- **`open_meteo.py`**: Generuje stan ikony pogodowej (zachmurzenie) używając szerokości i długości geograficznej poprzez bezpłatne API Open-Meteo. Określa również kody opisowe z biblioteki WMO World Meteorological Organization.
+- **`airly.py`**: Koncentrator smogu odpowiadający za indeks CAQI, wilgotność oraz ciśnienie.
 
-Konfiguracja tego modułu odbywa się w głównym pliku `config.py`.
+## Wyciąg zasobów
 
-1.  **`IMGW_STATION_NAME`**: Nazwa stacji synoptycznej, z której mają być pobierane dane. Musi dokładnie odpowiadać nazwie z API.
-    - **Jak znaleźć nazwę?** Wejdź na https://danepubliczne.imgw.pl/api/data/synop, znajdź najbliższą stację i skopiuj wartość z pola `"stacja"`.
+Ikony WMO renderowane przez Open-Meteo wykorzystują bazę znaków z katalogu `assets/icons/feather`. Są dopasowane automatycznie wg czasu Wschodu i Zachodu Słońca. Moduł kalibruje nazwy słońca dzięki bibliotece `astral`.
 
-2.  **`LOCATION_LAT` i `LOCATION_LON`**: Twoja szerokość i długość geograficzna. Są one **niezbędne** do prawidłowego obliczenia godzin wschodu i zachodu słońca, co z kolei wpływa na wybór ikon dziennych/nocnych.
+## Odporność na Błędy 
 
-## Silnik Reguł Ikon
-
-Wewnątrz pliku `weather.py`, zmienna `WEATHER_RULES` definiuje logikę wyboru ikon. Jest to lista reguł, gdzie każda reguła sprawdza określony warunek (np. `suma_opadu > 0`). Pierwsza spełniona reguła determinuje, która ikona zostanie użyta. Możesz modyfikować lub dodawać nowe reguły, jeśli chcesz dostosować mapowanie ikon do swoich potrzeb.
+Agregator jest wysoce niewrażliwy na braki sieciowe:
+- W razie awarii chmury (Airly padnie), `weather.py` nadal zaprezentuje temperaturę pobraną z Twojego fizycznego czujnika przy oknie (MQTT). Pliki stanu zachowuje niezależnie dla poszczególnych zmiennych.
+- Ostrzeżenie `--` zostaje użyte jedynie dla braku pre-cache (np. pustego JSON z poprzedniej sesji rano przy restarcie modułu systemowego) bez połączenia MQTT.

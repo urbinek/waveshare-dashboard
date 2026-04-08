@@ -49,6 +49,7 @@ def load_fonts():
         fonts['ellipsis'] = ImageFont.truetype(asset_manager.get_path('font_regular'), 11)
         fonts['weather_temp'] = ImageFont.truetype(asset_manager.get_path('font_bold'), 79)
         fonts['weather_temp_scaled'] = ImageFont.truetype(asset_manager.get_path('font_bold'), 87)
+        fonts['weather_temp_imgw'] = ImageFont.truetype(asset_manager.get_path('font_bold'), 44)
         logging.info("Wszystkie czcionki wczytane pomyślnie.")
     except (IOError, KeyError) as e:
         logging.critical(f"Nie udało się wczytać pliku czcionki: {e}. Sprawdź konfigurację w config.yaml.")

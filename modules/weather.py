@@ -8,92 +8,116 @@ from dateutil import tz
 
 from modules.config_loader import config
 from modules import path_manager, asset_manager
+from modules import zigbee2mqtt as zigbee2mqtt_module
 
-WEATHER_ICON_MAP = {
-    1: 'sun', 2: 'sun', 3: 'sun', 4: 'sun', 5: 'sun', 6: 'cloud', 7: 'cloud', 8: 'cloud',
-    11: 'cloud-off', 12: 'cloud-drizzle', 13: 'cloud-drizzle', 14: 'cloud-drizzle', 15: 'cloud-lightning',
-    16: 'cloud-lightning', 17: 'cloud-lightning', 18: 'cloud-rain', 19: 'cloud-snow', 20: 'cloud-snow',
-    21: 'cloud-snow', 22: 'cloud-snow', 23: 'cloud-snow', 24: 'cloud-snow', 25: 'cloud-snow',
-    26: 'cloud-snow', 29: 'cloud-snow', 30: 'thermometer', 31: 'thermometer', 32: 'wind',
-    33: 'moon', 34: 'moon', 35: 'cloud', 36: 'cloud', 37: 'cloud', 38: 'cloud',
-    39: 'cloud-drizzle', 40: 'cloud-drizzle', 41: 'cloud-lightning', 42: 'cloud-lightning',
-    43: 'cloud-snow', 44: 'cloud-snow'
-}
+logger = logging.getLogger(__name__)
 
-def _select_weather_icon(icon_number):
-    """Wybiera ikonę Feather na podstawie numeru ikony z AccuWeather."""
-    if icon_number is None:
-        return asset_manager.get_path('icon_sync_problem')
-    icon_name = WEATHER_ICON_MAP.get(icon_number, 'alert-triangle')
-    return os.path.join(asset_manager.get_path('icons_feather_path'), f'{icon_name}.svg')
 
 def _get_sunrise_sunset():
     """Oblicza czas wschodu i zachodu słońca."""
     try:
         location_config = config['location']
-        loc = LocationInfo("Warsaw", "Poland", "Europe/Warsaw", location_config['latitude'], location_config['longitude'])
+        loc = LocationInfo(
+            "Warsaw", "Poland", "Europe/Warsaw",
+            location_config['latitude'], location_config['longitude']
+        )
         s = sun(loc.observer, date=date.today())
         local_tz = tz.gettz("Europe/Warsaw")
         sunrise = s['sunrise'].astimezone(local_tz).strftime('%H:%M')
         sunset = s['sunset'].astimezone(local_tz).strftime('%H:%M')
         return sunrise, sunset
     except Exception as e:
-        logging.error(f"Błąd podczas obliczania czasu wschodu/zachodu słońca: {e}")
+        logger.error(f"Błąd podczas obliczania czasu wschodu/zachodu słońca: {e}")
         return "--:--", "--:--"
 
-def update_weather_data():
-    """Tworzy ujednolicony plik weather.json z danych Airly i AccuWeather."""
-    airly_file_path = os.path.join(path_manager.CACHE_DIR, 'airly.json')
-    airly_data = {}
-    temp_real, humidity, pressure = "--", "--", "--"
 
+def update_weather_data():
+    """
+    Tworzy ujednolicony plik weather.json z danych:
+    - Airly: wilgotność, ciśnienie, CAQI
+    - IMGW: temperatura powietrza ze stacji meteorologicznej
+    - Zigbee2MQTT: lokalna temperatura z czujnika zewnętrznego
+    - Open-Meteo: kod pogodowy WMO, ikona i opis (bezpłatne, bez klucza)
+    """
+    # --- Airly: wilgotność, ciśnienie ---
+    airly_file_path = os.path.join(path_manager.CACHE_DIR, 'airly.json')
+    humidity, pressure = "--", "--"
     try:
         with open(airly_file_path, 'r', encoding='utf-8') as f:
             airly_data = json.load(f)
-        
-        values = {item['name']: item['value'] for item in airly_data.get('current', {}).get('values', [])}
-        temp_real = round(values.get('TEMPERATURE', 0))
-        humidity = round(values.get('HUMIDITY', 0))
-        pressure = round(values.get('PRESSURE', 0))
-
+        values = {item['name']: item['value']
+                  for item in airly_data.get('current', {}).get('values', [])}
+        humidity = round(values.get('HUMIDITY', 0)) if 'HUMIDITY' in values else "--"
+        pressure = round(values.get('PRESSURE', 0)) if 'PRESSURE' in values else "--"
     except (IOError, json.JSONDecodeError, TypeError) as e:
-        logging.warning(f"Nie można odczytać lub przetworzyć pliku Airly: {e}.")
+        logger.warning(f"Nie można odczytać lub przetworzyć pliku Airly: {e}.")
 
-    accuweather_file_path = os.path.join(path_manager.CACHE_DIR, 'accuweather.json')
-    accuweather_data = {}
-    current_icon_num, forecast_icon_num = None, None
-
+    # --- IMGW: temperatura z pobliskiej stacji meteorologicznej ---
+    imgw_file_path = os.path.join(path_manager.CACHE_DIR, 'imgw.json')
+    temp_imgw = "--"
     try:
-        with open(accuweather_file_path, 'r', encoding='utf-8') as f:
-            accuweather_data = json.load(f)
-        
-        current_icon_num = accuweather_data.get('current', {}).get('WeatherIcon')
-        forecast_icon_num = accuweather_data.get('forecast', {}).get('Day', {}).get('Icon')
-
+        with open(imgw_file_path, 'r', encoding='utf-8') as f:
+            imgw_data = json.load(f)
+        val = imgw_data.get('temp_air')
+        if val is not None:
+            temp_imgw = round(val, 1)
     except (IOError, json.JSONDecodeError) as e:
-        logging.info(f"Plik AccuWeather nie jest dostępny: {e}.")
+        logger.warning(f"Plik IMGW nie jest dostępny: {e}.")
+
+    # --- Zigbee2MQTT: lokalna temperatura z czujnika ---
+    # Najpierw sprawdź dane w RAM (klient MQTT działa w tle),
+    # potem fallback do pliku cache (jeśli były dane z poprzedniego uruchomienia)
+    temp_local = "--"
+    zigbee_ram = zigbee2mqtt_module.get_current_data()
+    if zigbee_ram:
+        val = zigbee_ram.get('temperature')
+        if val is not None:
+            temp_local = round(val, 1)
+            logger.debug(f"Temperatura lokalna z RAM (MQTT): {temp_local}°C")
+    else:
+        # Fallback do pliku – normalny stan przy pierwszym starcie
+        zigbee_file_path = os.path.join(path_manager.CACHE_DIR, 'zigbee2mqtt.json')
+        try:
+            with open(zigbee_file_path, 'r', encoding='utf-8') as f:
+                zigbee_data = json.load(f)
+            val = zigbee_data.get('temperature')
+            if val is not None:
+                temp_local = round(val, 1)
+        except (IOError, json.JSONDecodeError):
+            logger.info("Brak danych MQTT (czujnik Outdoor) – plik nie istnieje lub MQTT nie odebrał jeszcze wiadomości.")
+
+    # --- Open-Meteo: ikona pogodowa i opis WMO ---
+    open_meteo_file_path = os.path.join(path_manager.CACHE_DIR, 'open_meteo.json')
+    weather_icon = None
+    weather_description = "Brak danych"
+    try:
+        with open(open_meteo_file_path, 'r', encoding='utf-8') as f:
+            meteo_data = json.load(f)
+        weather_icon = meteo_data.get('icon_path')
+        weather_description = meteo_data.get('description', 'Brak danych')
+    except (IOError, json.JSONDecodeError) as e:
+        logger.warning(f"Plik Open-Meteo nie jest dostępny: {e}.")
+        # Fallback do ikony błędu synchronizacji
+        weather_icon = asset_manager.get_path('icon_sync_problem')
 
     sunrise, sunset = _get_sunrise_sunset()
 
     final_weather_data = {
-        "icon": _select_weather_icon(current_icon_num),
-        "forecast_icon": _select_weather_icon(forecast_icon_num),
-        "weather_description": accuweather_data.get('current', {}).get('WeatherText', 'Brak opisu'),
-        "temp_real": temp_real,
+        "temp_local": temp_local,
+        "temp_imgw": temp_imgw,
         "humidity": humidity,
         "pressure": pressure,
+        "icon": weather_icon,
+        "weather_description": weather_description,
         "sunrise": sunrise,
         "sunset": sunset,
-        "cloud_cover": accuweather_data.get('current', {}).get('CloudCover', 0),
-        "forecast_temp_min": round(accuweather_data.get('forecast', {}).get('Temperature', {}).get('Minimum', {}).get('Value', 0)) if accuweather_data else '--',
-        "forecast_temp_max": round(accuweather_data.get('forecast', {}).get('Temperature', {}).get('Maximum', {}).get('Value', 0)) if accuweather_data else '--',
         "timestamp": datetime.now(tz=timezone.utc).isoformat()
     }
-    
+
     output_file_path = os.path.join(path_manager.CACHE_DIR, 'weather.json')
     try:
         with open(output_file_path, 'w', encoding='utf-8') as f:
             json.dump(final_weather_data, f, ensure_ascii=False, indent=4)
-        logging.info("Pomyślnie zintegrowano dane z Airly i AccuWeather do weather.json.")
+        logger.debug("Pomyślnie zintegrowano dane pogodowe do weather.json.")
     except IOError as e:
-        logging.error(f"Nie można zapisać finalnego pliku weather.json: {e}")
+        logger.error(f"Nie można zapisać finalnego pliku weather.json: {e}")

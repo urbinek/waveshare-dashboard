@@ -8,6 +8,7 @@ google-auth-oauthlib
 gpiozero
 lgpio
 Pillow
+paho-mqtt
 python-dateutil
 PyYAML
 requests
