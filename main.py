@@ -6,7 +6,7 @@ import sys
 import datetime
 import json
 from apscheduler.schedulers.blocking import BlockingScheduler
-from modules import time, weather, google_calendar, display, path_manager, startup_screens, asset_manager, airly, accuweather
+from modules import time, weather, google_calendar, display, path_manager, startup_screens, asset_manager, airly, imgw, open_meteo, zigbee2mqtt
 from modules.config_loader import config
 
 class CenteredFormatter(logging.Formatter):
@@ -20,21 +20,33 @@ class CenteredFormatter(logging.Formatter):
         record.levelname_centered = record.levelname.center(self.level_width)
         return super().format(record)
 
+
 should_flip = False
+
 
 def update_all_data_sources(refresh_intervals, last_update_times, verbose_mode=False):
     logging.info("Rozpoczynanie aktualizacji wszystkich źródeł danych...")
     now = datetime.datetime.now()
 
-    # AccuWeather
-    accuweather_interval = datetime.timedelta(minutes=refresh_intervals.get('accuweather_minutes', 30))
-    if now - last_update_times.get('accuweather', datetime.datetime.min) >= accuweather_interval:
-        accuweather_thread = threading.Thread(target=accuweather.update_accuweather_data, args=(verbose_mode,))
-        accuweather_thread.start()
-        accuweather_thread.join()
-        last_update_times['accuweather'] = now
+    # IMGW – temperatura z pobliskiej stacji meteorologicznej
+    imgw_interval = datetime.timedelta(minutes=refresh_intervals.get('imgw_minutes', 60))
+    if now - last_update_times.get('imgw', datetime.datetime.min) >= imgw_interval:
+        imgw_thread = threading.Thread(target=imgw.update_imgw_data, args=(verbose_mode,))
+        imgw_thread.start()
+        imgw_thread.join()
+        last_update_times['imgw'] = now
     else:
-        logging.info(f"Pominięto aktualizację AccuWeather. Następna aktualizacja za {(accuweather_interval - (now - last_update_times.get('accuweather', datetime.datetime.min))).total_seconds() / 60:.1f} minut.")
+        logging.info(f"Pominięto aktualizację IMGW. Następna aktualizacja za {(imgw_interval - (now - last_update_times.get('imgw', datetime.datetime.min))).total_seconds() / 60:.1f} minut.")
+
+    # Open-Meteo – ikony pogodowe WMO (bezpłatne, bez klucza)
+    open_meteo_interval = datetime.timedelta(minutes=refresh_intervals.get('open_meteo_minutes', 60))
+    if now - last_update_times.get('open_meteo', datetime.datetime.min) >= open_meteo_interval:
+        open_meteo_thread = threading.Thread(target=open_meteo.update_open_meteo_data, args=(verbose_mode,))
+        open_meteo_thread.start()
+        open_meteo_thread.join()
+        last_update_times['open_meteo'] = now
+    else:
+        logging.info(f"Pominięto aktualizację Open-Meteo. Następna aktualizacja za {(open_meteo_interval - (now - last_update_times.get('open_meteo', datetime.datetime.min))).total_seconds() / 60:.1f} minut.")
 
     # Airly
     airly_interval = datetime.timedelta(minutes=refresh_intervals.get('airly_minutes', 15))
@@ -100,6 +112,7 @@ def time_update_job(layout_config, draw_borders_flag=False):
         logging.debug("Uruchamianie częściowej aktualizacji ekranu (tylko czas)...")
         try:
             time.update_time_data()
+            weather.update_weather_data()  # odświeża temp. z MQTT bez zapytań API
             display.partial_update_time(layout_config, draw_borders=draw_borders_flag, flip=should_flip)
         except Exception as e:
             logging.error(f"Błąd podczas częściowej aktualizacji: {e}", exc_info=True)
@@ -139,8 +152,9 @@ def main():
     if not refresh_intervals:
         logging.warning("Brak konfiguracji interwałów odświeżania w pliku config.yaml. Użycie wartości domyślnych.")
         refresh_intervals = {
-            'accuweather_minutes': 30,
-            'airly_minutes': 15,
+            'imgw_minutes': 60,
+            'open_meteo_minutes': 60,
+            'airly_minutes': 16,
             'google_calendar_minutes': 1
         }
 
@@ -181,7 +195,8 @@ def main():
     # Load last update times or initialize
     loaded_times = _load_last_update_times()
     last_update_times = {
-        'accuweather': loaded_times.get('accuweather', datetime.datetime.min),
+        'imgw': loaded_times.get('imgw', datetime.datetime.min),
+        'open_meteo': loaded_times.get('open_meteo', datetime.datetime.min),
         'airly': loaded_times.get('airly', datetime.datetime.min),
         'google_calendar': loaded_times.get('google_calendar', datetime.datetime.min)
     }
@@ -197,6 +212,10 @@ def main():
         logging.critical(f"Błąd krytyczny podczas inicjalizacji zasobów: {e}.", exc_info=True)
         sys.exit(1)
 
+    # Uruchomienie klienta MQTT w tle (odbiera dane z czujnika Outdoor na bieżąco)
+    logging.info("Uruchamianie klienta MQTT (Zigbee2MQTT / Outdoor)...")
+    zigbee2mqtt.start_mqtt_listener()
+
     global should_flip
     should_flip = config['app'].get('flip_display', False) or args.flip
 
@@ -205,7 +224,7 @@ def main():
         splash_thread = threading.Thread(target=startup_screens.display_easter_egg, args=(display.EPD_LOCK, should_flip), name="EasterEggThread")
     elif not args.no_splash:
         splash_thread = threading.Thread(target=startup_screens.display_splash_screen, args=(display.EPD_LOCK, should_flip), name="SplashThread")
-    
+
     if splash_thread:
         splash_thread.start()
 
@@ -237,7 +256,9 @@ def main():
         display.clear_display()
         logging.info("Aplikacja zamknięta.")
     finally:
+        zigbee2mqtt.stop_mqtt_listener()
         _save_last_update_times(last_update_times)
+
 
 if __name__ == "__main__":
     main()

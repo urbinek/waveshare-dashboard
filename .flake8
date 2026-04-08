@@ -5,7 +5,7 @@ ignore =
     E501,
     E302
 
- Wyklucz całe foldery lub pliki z analizy
+# Wyklucz całe foldery lub pliki z analizy
 # Domyślnie flake8 ignoruje .git, .hg, .svn, __pycache__
 exclude =
     .git,
