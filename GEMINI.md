@@ -14,6 +14,7 @@ The project is a personalized, grayscale (black and white with shades of gray) d
     - `google-api-python-client` for Google Calendar integration
     - `Pillow` for image manipulation
     - `cairosvg` for SVG rendering (recommended for performance)
+    - `paho-mqtt` for local Zigbee sensor data
 - **Configuration:**
     - `config.yaml` for all application settings.
 - **Linting:** `flake8` (configuration in `.flake8`)

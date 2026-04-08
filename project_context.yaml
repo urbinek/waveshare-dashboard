@@ -17,11 +17,10 @@ kluczowe_funkcjonalności:
       - Pod kalendarzem ma wyświetlać się jednolinikowy tekst o nietypowym święcie
   - Wywietlanie listy 5 najbliższych zadań z synchronizowanergo kalendarza google
   - Wyświetlanie aktualnej pogody:
-      - Dane mają być pobierane z Accuweather API
-      - Prosta ikona/grafika reprezentująca obecną pogodę
-      - temperatura rzeczywista i odczuwalna
-      - wilgotność
-      - prędkość i kierynek wiatru
+      - Dane mają być agregowane z bezpłatnych i lokalnych źródeł (IMGW, Open-Meteo, Airly) oraz własnego serwera MQTT (dla sensora temperatury)
+      - Prosta ikona/grafika WMO reprezentująca obecną pogodę
+      - Dwie temperatury: referencyjna z najbliższej stacji IMGW oraz z Twojego czujnika na zewnątrz
+      - wilgotność, zanieczeszczenie powietrza (CAQI) z pomiarów Airly
 wymogi_techniczne:
   - skrypty ma byc oparyty na środowisku Python
   - główny proces może być ciagle uruchomiony (nadzorowany przez systemd)
